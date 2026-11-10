@@ -1,0 +1,44 @@
+name: Add CODEOWNERS
+
+# Triggered by the Port self-service workflow "Add CODEOWNERS".
+on:
+  workflow_dispatch:
+    inputs:
+      owners:
+        description: "Space-separated owners, e.g. @my-user @my-org/my-team"
+        required: true
+      port_run_id:
+        description: "Port workflow run ID (for traceability)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  add-codeowners:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Write CODEOWNERS
+        env:
+          OWNERS: ${{ inputs.owners }}
+        run: |
+          printf '# Managed via Port self-service action\n* %s\n' "$OWNERS" > CODEOWNERS
+          cat CODEOWNERS
+      - name: Commit and push
+        env:
+          PORT_RUN_ID: ${{ inputs.port_run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CODEOWNERS
+          if git diff --cached --quiet; then
+            echo "CODEOWNERS already up to date"
+            exit 0
+          fi
+          git commit -m "Add CODEOWNERS via Port self-service (run: ${PORT_RUN_ID:-manual})"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
